@@ -31,10 +31,10 @@ public class ApiRequestDTO {
     private HttpMethod method;
 
     @Builder.Default
-    private List<HeaderDTO> headers = new ArrayList<>();
+    private List<RequestHeaderDTO> headers = new ArrayList<>();
 
     @Builder.Default
-    private List<QueryParamDTO> queryParams = new ArrayList<>();
+    private List<QueryParameterDTO> queryParams = new ArrayList<>();
 
     private String body;
 

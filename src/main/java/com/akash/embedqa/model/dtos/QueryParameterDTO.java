@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class QueryParamDTO {
+public class QueryParameterDTO {
 
     @NotBlank(message = "Query param key is required")
     private String key;

@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class HeaderDTO {
+public class RequestHeaderDTO {
 
     @NotBlank(message = "Header key is required")
     private String key;
