@@ -3,6 +3,7 @@ package com.akash.embedqa.model.dtos;
 import com.akash.embedqa.enums.AuthType;
 import com.akash.embedqa.enums.BodyType;
 import com.akash.embedqa.enums.HttpMethod;
+import com.akash.embedqa.model.dtos.request.AuthConfigDTO;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;

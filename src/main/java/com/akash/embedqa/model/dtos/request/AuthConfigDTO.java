@@ -1,4 +1,4 @@
-package com.akash.embedqa.model.dtos;
+package com.akash.embedqa.model.dtos.request;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
