@@ -1,8 +1,10 @@
 package com.akash.embedqa.model.entities;
 
+import com.akash.embedqa.converter.AuthConfigConverter;
 import com.akash.embedqa.enums.AuthType;
 import com.akash.embedqa.enums.BodyType;
 import com.akash.embedqa.enums.HttpMethod;
+import com.akash.embedqa.model.dtos.request.AuthConfigDTO;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -57,8 +59,9 @@ public class ApiRequest extends BaseEntity {
     @Enumerated(EnumType.STRING)
     private AuthType authType;
 
+    @Convert(converter = AuthConfigConverter.class)
     @Column(columnDefinition = "TEXT")
-    private String authConfig;
+    private AuthConfigDTO authConfig;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "collection_id")
