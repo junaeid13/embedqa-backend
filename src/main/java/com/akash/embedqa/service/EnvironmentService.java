@@ -4,6 +4,7 @@ import com.akash.embedqa.model.dtos.request.EnvironmentDTO;
 import com.akash.embedqa.model.dtos.response.EnvironmentResponseDTO;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Author: akash
@@ -15,4 +16,5 @@ public interface EnvironmentService {
     EnvironmentResponseDTO getById(Long id);
     List<EnvironmentResponseDTO> getAll();
     void delete(Long id);
+    Map<String, String> getVariablesAsMap(Long environmentId);
 }

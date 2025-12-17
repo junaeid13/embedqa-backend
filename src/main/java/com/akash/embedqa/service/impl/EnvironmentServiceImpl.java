@@ -2,6 +2,7 @@ package com.akash.embedqa.service.impl;
 
 import com.akash.embedqa.exception.ResourceNotFoundException;
 import com.akash.embedqa.model.dtos.request.EnvironmentDTO;
+import com.akash.embedqa.model.dtos.request.EnvironmentVariableDTO;
 import com.akash.embedqa.model.dtos.response.EnvironmentResponseDTO;
 import com.akash.embedqa.model.entities.Environment;
 import com.akash.embedqa.repository.EnvironmentRepository;
@@ -12,7 +13,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -84,6 +87,31 @@ public class EnvironmentServiceImpl implements EnvironmentService {
             throw new ResourceNotFoundException("Environment", id);
         }
         environmentRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Map<String, String> getVariablesAsMap(Long environmentId) {
+        if (environmentId == null) {
+            return Collections.emptyMap();
+        }
+
+        Environment environment = environmentRepository.findById(environmentId)
+                .orElse(null);
+
+        if (environment == null || environment.getVariablesJson() == null) {
+            return Collections.emptyMap();
+        }
+
+        List<EnvironmentVariableDTO> variables = environment.getVariablesJson();
+
+        return variables.stream()
+                .filter(v -> Boolean.TRUE.equals(v.getEnabled()))
+                .collect(Collectors.toMap(
+                        EnvironmentVariableDTO::getName,
+                        v -> v.getValue() != null ? v.getValue() : "",
+                        (v1, v2) -> v2  // Keep last value if duplicate keys
+                ));
     }
 
     private EnvironmentResponseDTO mapToResponse(Environment environment) {

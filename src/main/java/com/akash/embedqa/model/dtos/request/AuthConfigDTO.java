@@ -15,14 +15,24 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class AuthConfigDTO {
-    private String token;
+    // Bearer Token Authentication
+    private String bearerToken;
 
-    private String username;
-    private String password;
+    // Basic Authentication
+    private String basicUsername;
+    private String basicPassword;
 
+    // API Key Authentication
     private String apiKey;
-    private String apiKeyHeader;
+    private String apiKeyHeaderName;  // Header name for API key (default: X-API-Key)
+    private String apiKeyLocation;    // "header" or "query"
 
-    private String accessToken;
-    private String tokenType;
+    // OAuth2 Configuration
+    private String oauth2AccessToken;
+    private String oauth2RefreshToken;
+    private String oauth2TokenUrl;
+    private String oauth2ClientId;
+    private String oauth2ClientSecret;
+    private String oauth2Scope;
+    private String oauth2GrantType;  // "client_credentials", "password", "authorization_code"
 }

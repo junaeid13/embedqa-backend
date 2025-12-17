@@ -11,5 +11,19 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum BodyType {
-    NONE, JSON, XML, FORM_DATA, RAW, BINARY
+    JSON("application/json"),
+    XML("application/xml"),
+    FORM_DATA("application/x-www-form-urlencoded"),
+    RAW("text/plain"),
+    BINARY("application/octet-stream");
+
+    private final String contentType;
+
+    BodyType(String contentType) {
+        this.contentType = contentType;
+    }
+
+    public String getContentType() {
+        return contentType;
+    }
 }
