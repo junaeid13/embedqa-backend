@@ -1,6 +1,5 @@
 package com.akash.embedqa.enums;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 /**
@@ -9,8 +8,8 @@ import lombok.Getter;
  */
 
 @Getter
-@AllArgsConstructor
 public enum BodyType {
+    NONE(""),
     JSON("application/json"),
     XML("application/xml"),
     FORM_DATA("application/x-www-form-urlencoded"),
