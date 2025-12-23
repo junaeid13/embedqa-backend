@@ -281,7 +281,7 @@ We welcome contributions! Here's how you can help:
 
 ## 👨‍💻 Author
 
-**Akash** - [GitHub](https://github.com/akash)
+**Akash** - [GitHub](https://github.com/AkashBhuiyan)
 
 ---
 
