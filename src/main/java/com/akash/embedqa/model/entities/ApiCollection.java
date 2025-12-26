@@ -34,6 +34,9 @@ public class ApiCollection {
     @Builder.Default
     private List<ApiRequest> requests = new ArrayList<>();
 
+    @OneToMany(mappedBy = "collection", fetch = FetchType.LAZY)
+    private List<RequestHistory> requestHistoryList;
+
     public void addRequest(ApiRequest request) {
         requests.add(request);
         request.setCollection(this);

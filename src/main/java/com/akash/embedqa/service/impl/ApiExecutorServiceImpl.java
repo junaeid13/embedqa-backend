@@ -8,8 +8,10 @@ import com.akash.embedqa.model.dtos.request.AuthConfigDTO;
 import com.akash.embedqa.model.dtos.request.ExecuteRequestDTO;
 import com.akash.embedqa.model.dtos.request.KeyValuePairDTO;
 import com.akash.embedqa.model.dtos.response.ApiResponseDTO;
+import com.akash.embedqa.model.entities.RequestHistory;
 import com.akash.embedqa.service.ApiExecutorService;
 import com.akash.embedqa.service.EnvironmentService;
+import com.akash.embedqa.service.HistoryService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -50,13 +52,14 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
     private final CloseableHttpClient httpClient;
     private final ObjectMapper objectMapper;
     private final EnvironmentService environmentService;
+    private final HistoryService historyService;
 
     // Pattern to match environment variables: {{variableName}}
     private static final Pattern VARIABLE_PATTERN = Pattern.compile("\\{\\{([^}]+)}}");
 
     @Override
     public ApiResponseDTO executeRequest(ExecuteRequestDTO request) {
-        return executeAndSave(request, false);
+        return executeAndSave(request, true);
     }
 
     @Override
@@ -88,23 +91,41 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
             // Execute the request
             log.debug("Executing {} request to: {}", request.getMethod(), uri);
 
-            return httpClient.execute(httpRequest, response -> {
+            ApiResponseDTO response = httpClient.execute(httpRequest, httpResponse -> {
                 long responseTime = System.currentTimeMillis() - startTime;
-                return buildResponse(response, responseTime, uri.toString(), request.getMethod().name());
+                return buildResponse(httpResponse, responseTime, uri.toString(), request.getMethod().name());
             });
+
+            if (saveToHistory) {
+                saveToHistory(request, response, uri.toString());
+            }
+
+            return response;
 
         } catch (URISyntaxException e) {
             log.error("Invalid URL: {}", request.getUrl(), e);
-            return buildErrorResponse(request, "Invalid URL: " + e.getMessage(),
+            ApiResponseDTO errorResponse = buildErrorResponse(request, "Invalid URL: " + e.getMessage(),
                     System.currentTimeMillis() - startTime);
+            if (saveToHistory) {
+                saveToHistory(request, errorResponse, request.getUrl());
+            }
+            return errorResponse;
         } catch (IOException e) {
             log.error("Request execution failed", e);
-            return buildErrorResponse(request, "Connection failed: " + e.getMessage(),
+            ApiResponseDTO errorResponse = buildErrorResponse(request, "Connection failed: " + e.getMessage(),
                     System.currentTimeMillis() - startTime);
+            if (saveToHistory) {
+                saveToHistory(request, errorResponse, request.getUrl());
+            }
+            return errorResponse;
         } catch (Exception e) {
             log.error("Unexpected error during request execution", e);
-            return buildErrorResponse(request, "Unexpected error: " + e.getMessage(),
+            ApiResponseDTO errorResponse = buildErrorResponse(request, "Unexpected error: " + e.getMessage(),
                     System.currentTimeMillis() - startTime);
+            if (saveToHistory) {
+                saveToHistory(request, errorResponse, request.getUrl());
+            }
+            return errorResponse;
         }
     }
 
@@ -174,6 +195,79 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
         }
 
         return uriBuilder.build();
+    }
+
+    private void saveToHistory(ExecuteRequestDTO request, ApiResponseDTO response, String resolvedUrl) {
+        try {
+            // Convert headers to JSON
+            String requestHeadersJson = null;
+            if (request.getHeaders() != null && !request.getHeaders().isEmpty()) {
+                Map<String, String> headers = request.getHeaders().stream()
+                        .filter(h -> Boolean.TRUE.equals(h.getEnabled()) && h.getKey() != null && !h.getKey().isBlank())
+                        .collect(java.util.stream.Collectors.toMap(
+                                KeyValuePairDTO::getKey,
+                                h -> h.getValue() != null ? h.getValue() : "",
+                                (v1, v2) -> v2
+                        ));
+                requestHeadersJson = objectMapper.writeValueAsString(headers);
+            }
+
+            // Convert query params to JSON
+            String queryParamsJson = null;
+            if (request.getQueryParams() != null && !request.getQueryParams().isEmpty()) {
+                Map<String, String> params = request.getQueryParams().stream()
+                        .filter(p -> Boolean.TRUE.equals(p.getEnabled()) && p.getKey() != null && !p.getKey().isBlank())
+                        .collect(java.util.stream.Collectors.toMap(
+                                KeyValuePairDTO::getKey,
+                                p -> p.getValue() != null ? p.getValue() : "",
+                                (v1, v2) -> v2
+                        ));
+                queryParamsJson = objectMapper.writeValueAsString(params);
+            }
+
+            // Convert auth config to JSON
+            String authConfigJson = null;
+            if (request.getAuthConfig() != null) {
+                authConfigJson = objectMapper.writeValueAsString(request.getAuthConfig());
+            }
+
+            // Convert response headers to JSON
+            String responseHeadersJson = null;
+            if (response.getHeaders() != null && !response.getHeaders().isEmpty()) {
+                Map<String, String> respHeaders = response.getHeaders().stream()
+                        .collect(java.util.stream.Collectors.toMap(
+                                ApiResponseDTO.HeaderDTO::getName,
+                                h -> h.getValue() != null ? h.getValue() : "",
+                                (v1, v2) -> v2
+                        ));
+                responseHeadersJson = objectMapper.writeValueAsString(respHeaders);
+            }
+
+            RequestHistory history = RequestHistory.builder()
+                    .url(resolvedUrl)
+                    .method(request.getMethod())
+                    .requestHeaders(requestHeadersJson)
+                    .queryParams(queryParamsJson)
+                    .requestBody(request.getBody())
+                    .bodyType(request.getBodyType() != null ? request.getBodyType().name() : null)
+                    .authType(request.getAuthType() != null ? request.getAuthType().name() : null)
+                    .authConfig(authConfigJson)
+                    .statusCode(response.getStatusCode() != null ? response.getStatusCode() : 0)
+                    .statusText(response.getStatusText())
+                    .responseHeaders(responseHeadersJson)
+                    .responseBody(response.getBody())
+                    .responseTime(response.getResponseTimeMs() != null ? response.getResponseTimeMs() : 0L)
+                    .responseSize(response.getBodySize())
+                    .executedAt(java.time.LocalDateTime.now())
+                    .build();
+
+            historyService.saveHistory(history);
+            log.debug("Saved request history for URL: {}", resolvedUrl);
+
+        } catch (Exception e) {
+            log.error("Failed to save request history: {}", e.getMessage(), e);
+            // Don't throw - we don't want history saving failures to affect the response
+        }
     }
 
     private void addBody(HttpUriRequestBase request, String body, BodyType bodyType,

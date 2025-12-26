@@ -71,6 +71,10 @@ public class ApiRequest extends BaseEntity {
     @JoinColumn(name = "environment_id")
     private Environment environment;
 
+    @OneToMany(mappedBy = "apiRequest", fetch = FetchType.LAZY)
+    private List<RequestHistory> requestHistoryList;
+
+
     public void addHeader(RequestHeader header) {
         headers.add(header);
         header.setApiRequest(this);
