@@ -5,12 +5,10 @@ import com.akash.embedqa.model.dtos.request.KeyValuePairDTO;
 import com.akash.embedqa.model.dtos.request.SaveRequestDTO;
 import com.akash.embedqa.model.dtos.response.RequestDetailDTO;
 import com.akash.embedqa.model.dtos.response.RequestSummaryDTO;
-import com.akash.embedqa.model.entities.ApiCollection;
-import com.akash.embedqa.model.entities.ApiRequest;
-import com.akash.embedqa.model.entities.QueryParameter;
-import com.akash.embedqa.model.entities.RequestHeader;
+import com.akash.embedqa.model.entities.*;
 import com.akash.embedqa.repository.ApiCollectionRepository;
 import com.akash.embedqa.repository.ApiRequestRepository;
+import com.akash.embedqa.repository.EnvironmentRepository;
 import com.akash.embedqa.service.RequestService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +34,7 @@ public class RequestServiceImpl implements RequestService {
 
     private final ApiRequestRepository requestRepository;
     private final ApiCollectionRepository collectionRepository;
+    private final EnvironmentRepository environmentRepository;
     private final ObjectMapper objectMapper;
 
     @Override
@@ -43,10 +42,14 @@ public class RequestServiceImpl implements RequestService {
     public RequestDetailDTO save(SaveRequestDTO dto) {
         log.debug("Saving request: {}", dto.getName());
 
-        ApiCollection collection = null;
-        if (dto.getCollectionId() != null) {
-            collection = collectionRepository.findById(dto.getCollectionId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Collection", dto.getCollectionId()));
+        // Get or create collection
+        ApiCollection collection = resolveCollection(dto);
+
+        // Get environment if specified
+        Environment environment = null;
+        if (dto.getEnvironmentId() != null) {
+            environment = environmentRepository.findById(dto.getEnvironmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Environment", dto.getEnvironmentId()));
         }
 
         ApiRequest request = ApiRequest.builder()
@@ -59,32 +62,66 @@ public class RequestServiceImpl implements RequestService {
                 .authType(dto.getAuthType())
                 .authConfig(dto.getAuthConfig())
                 .collection(collection)
+                .environment(environment)
                 .build();
 
-        // Add headers
+        // Add headers (only enabled ones with non-blank keys)
         if (dto.getHeaders() != null) {
             for (KeyValuePairDTO headerDto : dto.getHeaders()) {
-                RequestHeader header = RequestHeader.builder()
-                        .headerName(headerDto.getKey())
-                        .headerValue(headerDto.getValue())
-                        .build();
-                request.addHeader(header);
+                if (isValidKeyValuePair(headerDto)) {
+                    RequestHeader header = RequestHeader.builder()
+                            .headerName(headerDto.getKey())
+                            .headerValue(headerDto.getValue() != null ? headerDto.getValue() : "")
+                            .build();
+                    request.addHeader(header);
+                }
             }
         }
 
-        // Add query parameters
+        // Add query parameters (only enabled ones with non-blank keys)
         if (dto.getQueryParams() != null) {
             for (KeyValuePairDTO paramDto : dto.getQueryParams()) {
-                QueryParameter param = QueryParameter.builder()
-                        .name(paramDto.getKey())
-                        .value(paramDto.getValue())
-                        .build();
-                request.addQueryParam(param);
+                if (isValidKeyValuePair(paramDto)) {
+                    QueryParameter param = QueryParameter.builder()
+                            .name(paramDto.getKey())
+                            .value(paramDto.getValue() != null ? paramDto.getValue() : "")
+                            .build();
+                    request.addQueryParam(param);
+                }
             }
         }
 
         ApiRequest saved = requestRepository.save(request);
+        log.info("Request saved successfully with ID: {}", saved.getId());
         return mapToDetail(saved);
+    }
+
+    private ApiCollection resolveCollection(SaveRequestDTO dto) {
+        // If collectionId is provided, use existing collection
+        if (dto.getCollectionId() != null) {
+            return collectionRepository.findById(dto.getCollectionId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Collection", dto.getCollectionId()));
+        }
+
+        // If newCollectionName is provided, create new collection
+        if (dto.getNewCollectionName() != null && !dto.getNewCollectionName().isBlank()) {
+            log.debug("Creating new collection: {}", dto.getNewCollectionName());
+            ApiCollection newCollection = ApiCollection.builder()
+                    .name(dto.getNewCollectionName().trim())
+                    .description(dto.getNewCollectionDescription())
+                    .build();
+            return collectionRepository.save(newCollection);
+        }
+
+        // No collection specified
+        return null;
+    }
+
+    private boolean isValidKeyValuePair(KeyValuePairDTO kvp) {
+        return kvp != null
+                && Boolean.TRUE.equals(kvp.getEnabled())
+                && kvp.getKey() != null
+                && !kvp.getKey().isBlank();
     }
 
     @Override
@@ -104,22 +141,30 @@ public class RequestServiceImpl implements RequestService {
         request.setAuthType(dto.getAuthType());
         request.setAuthConfig(dto.getAuthConfig());
 
-        // Update collection if changed
-        if (dto.getCollectionId() != null) {
-            ApiCollection collection = collectionRepository.findById(dto.getCollectionId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Collection", dto.getCollectionId()));
-            request.setCollection(collection);
+        // Update collection
+        ApiCollection collection = resolveCollection(dto);
+        request.setCollection(collection);
+
+        // Update environment if specified
+        if (dto.getEnvironmentId() != null) {
+            Environment environment = environmentRepository.findById(dto.getEnvironmentId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Environment", dto.getEnvironmentId()));
+            request.setEnvironment(environment);
+        } else {
+            request.setEnvironment(null);
         }
 
         // Clear and re-add headers
         request.getHeaders().clear();
         if (dto.getHeaders() != null) {
             for (KeyValuePairDTO headerDto : dto.getHeaders()) {
-                RequestHeader header = RequestHeader.builder()
-                        .headerName(headerDto.getKey())
-                        .headerValue(headerDto.getValue())
-                        .build();
-                request.addHeader(header);
+                if (isValidKeyValuePair(headerDto)) {
+                    RequestHeader header = RequestHeader.builder()
+                            .headerName(headerDto.getKey())
+                            .headerValue(headerDto.getValue() != null ? headerDto.getValue() : "")
+                            .build();
+                    request.addHeader(header);
+                }
             }
         }
 
@@ -127,15 +172,18 @@ public class RequestServiceImpl implements RequestService {
         request.getQueryParams().clear();
         if (dto.getQueryParams() != null) {
             for (KeyValuePairDTO paramDto : dto.getQueryParams()) {
-                QueryParameter param = QueryParameter.builder()
-                        .name(paramDto.getKey())
-                        .value(paramDto.getValue())
-                        .build();
-                request.addQueryParam(param);
+                if (isValidKeyValuePair(paramDto)) {
+                    QueryParameter param = QueryParameter.builder()
+                            .name(paramDto.getKey())
+                            .value(paramDto.getValue() != null ? paramDto.getValue() : "")
+                            .build();
+                    request.addQueryParam(param);
+                }
             }
         }
 
         ApiRequest saved = requestRepository.save(request);
+        log.info("Request updated successfully: {}", saved.getId());
         return mapToDetail(saved);
     }
 

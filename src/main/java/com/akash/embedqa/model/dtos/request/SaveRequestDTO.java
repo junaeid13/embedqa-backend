@@ -53,9 +53,12 @@ public class SaveRequestDTO {
 
     private AuthConfigDTO authConfig;
 
-    // Collection to save the request to
     private Long collectionId;
 
-    // Environment for variable resolution
     private Long environmentId;
+
+    private String newCollectionName;
+
+    private String newCollectionDescription;
+
 }
