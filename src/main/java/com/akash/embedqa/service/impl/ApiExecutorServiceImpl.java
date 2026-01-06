@@ -88,7 +88,7 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
             addAuthentication(httpRequest, request.getAuthType(), request.getAuthConfig(), variables);
 
             // Add body for methods that support it
-            if (hasBody(request.getMethod().name()) && request.getBody() != null) {
+            if (request.getMethod().supportsBody() && request.getBody() != null) {
                 addBody(httpRequest, request.getBody(), request.getBodyType(), variables);
             }
 
@@ -170,10 +170,6 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
         }
 
         return AppConstant.HTTP + trimmedUrl;
-    }
-
-    private boolean hasBody(String method) {
-        return Set.of(HttpMethod.POST, HttpMethod.PUT, HttpMethod.PATCH).contains(method.toUpperCase());
     }
 
     private void addHeaders(HttpUriRequestBase request, List<KeyValuePairDTO> headers,
