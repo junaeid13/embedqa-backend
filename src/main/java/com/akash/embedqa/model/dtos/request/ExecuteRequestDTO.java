@@ -38,6 +38,10 @@ public class ExecuteRequestDTO {
     @Builder.Default
     private List<KeyValuePairDTO> queryParams = new ArrayList<>();
 
+    @Valid
+    @Builder.Default
+    private List<KeyValuePairDTO> formData = new ArrayList<>();
+
     private String body;
 
     @Builder.Default

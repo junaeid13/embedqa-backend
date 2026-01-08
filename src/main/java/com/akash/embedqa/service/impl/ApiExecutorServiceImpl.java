@@ -3,7 +3,6 @@ package com.akash.embedqa.service.impl;
 import com.akash.embedqa.constant.AppConstant;
 import com.akash.embedqa.enums.AuthType;
 import com.akash.embedqa.enums.BodyType;
-import com.akash.embedqa.enums.HttpMethod;
 import com.akash.embedqa.model.dtos.request.AuthConfigDTO;
 import com.akash.embedqa.model.dtos.request.ExecuteRequestDTO;
 import com.akash.embedqa.model.dtos.request.KeyValuePairDTO;
@@ -20,13 +19,12 @@ import org.apache.hc.client5.http.classic.methods.HttpPatch;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
 import org.apache.hc.client5.http.classic.methods.HttpPut;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequestBase;
+import org.apache.hc.client5.http.entity.UrlEncodedFormEntity;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.core5.http.ClassicHttpResponse;
-import org.apache.hc.core5.http.ContentType;
-import org.apache.hc.core5.http.Header;
-import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.*;
 import org.apache.hc.core5.http.io.entity.EntityUtils;
 import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.BasicNameValuePair;
 import org.apache.hc.core5.net.URIBuilder;
 import org.springframework.stereotype.Service;
 
@@ -87,9 +85,8 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
             // Add authentication
             addAuthentication(httpRequest, request.getAuthType(), request.getAuthConfig(), variables);
 
-            // Add body for methods that support it
-            if (request.getMethod().supportsBody() && request.getBody() != null) {
-                addBody(httpRequest, request.getBody(), request.getBodyType(), variables);
+            if (request.getMethod().supportsBody()) {
+                addBody(httpRequest, request, variables);
             }
 
             // Execute the request
@@ -284,9 +281,25 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
         }
     }
 
-    private void addBody(HttpUriRequestBase request, String body, BodyType bodyType,
+    private void addBody(HttpUriRequestBase request, ExecuteRequestDTO requestDto,
                          Map<String, String> variables) {
-        if (body == null || body.isBlank()) return;
+        BodyType bodyType = requestDto.getBodyType();
+
+        if (bodyType == null || bodyType == BodyType.NONE) {
+            return;
+        }
+
+        // Handle Form Data
+        if (bodyType == BodyType.FORM_DATA) {
+            addFormDataBody(request, requestDto.getFormData(), variables);
+            return;
+        }
+
+        // Handle text body (JSON, XML, RAW)
+        String body = requestDto.getBody();
+        if (body == null || body.isBlank()) {
+            return;
+        }
 
         String resolvedBody = resolveVariables(body, variables);
         String contentType = bodyType.getContentType();
@@ -304,6 +317,36 @@ public class ApiExecutorServiceImpl implements ApiExecutorService {
         // Set content type header if not already set
         if (request.getFirstHeader(AppConstant.CONTENT_TYPE) == null) {
             request.addHeader(AppConstant.CONTENT_TYPE, contentType);
+        }
+    }
+
+    private void addFormDataBody(HttpUriRequestBase request, List<KeyValuePairDTO> formData,
+                                 Map<String, String> variables) {
+        if (formData == null || formData.isEmpty()) {
+            return;
+        }
+
+        List<NameValuePair> params = new ArrayList<>();
+        for (KeyValuePairDTO pair : formData) {
+            if (Boolean.TRUE.equals(pair.getEnabled()) && pair.getKey() != null && !pair.getKey().isBlank()) {
+                String key = resolveVariables(pair.getKey(), variables);
+                String value = resolveVariables(pair.getValue(), variables);
+                params.add(new BasicNameValuePair(key, value != null ? value : ""));
+            }
+        }
+
+        if (params.isEmpty()) {
+            return;
+        }
+
+        UrlEncodedFormEntity entity = new UrlEncodedFormEntity(params, StandardCharsets.UTF_8);
+
+        if (request instanceof HttpPost post) {
+            post.setEntity(entity);
+        } else if (request instanceof HttpPut put) {
+            put.setEntity(entity);
+        } else if (request instanceof HttpPatch patch) {
+            patch.setEntity(entity);
         }
     }
 
