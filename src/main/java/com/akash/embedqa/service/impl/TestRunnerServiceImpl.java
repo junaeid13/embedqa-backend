@@ -6,6 +6,9 @@ import com.akash.embedqa.model.dtos.test.TestResultDTO;
 import com.akash.embedqa.service.TestRunnerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
@@ -21,31 +24,51 @@ public class TestRunnerServiceImpl implements TestRunnerService {
 
     @Override
     public TestResultDTO runSingleTest(TestRequestDTO request) {
+
         TestResultDTO result = new TestResultDTO();
         result.setRequestName(result.getRequestName());
         result.setMessages(new ArrayList<>());
 
         try {
             String url = normalizerUrl(request.getUrl());
-            ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+
+            HttpHeaders headers = new HttpHeaders();
+            if (request.getHeaders() != null) {
+                request.getHeaders().forEach(headers::add);
+            }
+
+            HttpEntity<?> entity = new HttpEntity<>(headers);
+
+            ResponseEntity<String> response =
+                    restTemplate.exchange(
+                            url,
+                            HttpMethod.valueOf(request.getMethod()),
+                            entity,
+                            String.class
+                    );
 
             result.setStatusCode(response.getStatusCodeValue());
             boolean allPassed = true;
 
             if (request.getAssertions() != null && !request.getAssertions().isEmpty()) {
                 for (AssertionDTO assertion : request.getAssertions()) {
+
                     boolean passed = false;
+
                     if ("StatusCode".equalsIgnoreCase(assertion.getType())) {
                         int expected = Integer.parseInt(assertion.getValue());
                         int actual = response.getStatusCodeValue();
                         passed = actual == expected;
+
                         result.getMessages().add(
                                 "Excepted status " + expected +
                                         ", actual " + actual +
                                         " -> " + (passed ? "PASS" : "FAIL")
                         );
                     }
+
                     allPassed = allPassed && passed;
+
                 }
             } else {
                 allPassed = response.getStatusCodeValue() == 200;
@@ -53,7 +76,7 @@ public class TestRunnerServiceImpl implements TestRunnerService {
             }
 
             result.setPassed(allPassed);
-            
+
         } catch (Exception e) {
             result.setPassed(false);
             result.getMessages().add("Exception: " + e.getMessage());

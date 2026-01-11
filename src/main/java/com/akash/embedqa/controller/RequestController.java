@@ -36,7 +36,6 @@ public class RequestController {
     public ResponseEntity<ApiResult<RequestDetailDTO>> save(
             @Valid @RequestBody SaveRequestDTO dto) {
         log.info("Saving request: {}", dto.getName());
-
         RequestDetailDTO saved = requestService.save(dto);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResult.success(saved, "Request saved successfully"));
@@ -72,7 +71,6 @@ public class RequestController {
             @PathVariable Long id,
             @Valid @RequestBody SaveRequestDTO dto) {
         log.info("Updating request: {}", id);
-
         RequestDetailDTO updated = requestService.update(id, dto);
         return ResponseEntity.ok(ApiResult.success(updated, "Request updated successfully"));
     }
@@ -81,7 +79,6 @@ public class RequestController {
     @Operation(summary = "Delete request", description = "Delete a saved request")
     public ResponseEntity<ApiResult<Void>> delete(@PathVariable Long id) {
         log.info("Deleting request: {}", id);
-
         requestService.delete(id);
         return ResponseEntity.ok(ApiResult.success(null, "Request deleted successfully"));
     }

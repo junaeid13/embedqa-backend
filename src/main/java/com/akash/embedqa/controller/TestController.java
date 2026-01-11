@@ -12,9 +12,10 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/tests")
+@RequestMapping("/api/v1/test")
 
 public class TestController {
+
     private final TestRunnerService testRunnerService;
 
     @Autowired
@@ -22,24 +23,9 @@ public class TestController {
         this.testRunnerService = testRunnerService;
     }
 
-
-    @GetMapping("/run")
-    public TestResultDTO runTest(
-            @RequestParam String url,
-            @RequestParam(required = false) Integer expectedStatus
-    ) {
-        TestRequestDTO request = new TestRequestDTO();
-        request.setMethod("GET");
-        request.setUrl(url);
-        request.setName("Phase-2 Test");
-        if (expectedStatus != null) {
-            AssertionDTO assertion = new AssertionDTO();
-            assertion.setType("statusCode");
-            assertion.setValue(expectedStatus.toString());
-            request.setAssertions(List.of(assertion));
-        }
-
+    @PostMapping("/run")
+    public TestResultDTO runTest(@RequestBody TestRequestDTO request) {
         return testRunnerService.runSingleTest(request);
-
     }
+
 }
