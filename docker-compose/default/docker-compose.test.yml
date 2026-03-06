@@ -1,0 +1,25 @@
+# =====================================================
+# EmbedQA - Test Override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.test.yml up -d
+# =====================================================
+
+services:
+  postgres:
+    volumes:
+      - embedqa_test_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: test_pass
+
+  embedqa:
+    ports:
+      - "${SERVER_PORT:-8085}:${SERVER_PORT:-8085}"
+    environment:
+      SERVER_PORT: "${SERVER_PORT:-8085}"
+      SPRING_PROFILES_ACTIVE: test
+      DATABASE_PASSWORD: test_pass
+      LOG_LEVEL: INFO
+      HIKARI_MIN_IDLE: 1
+      HIKARI_MAX_POOL: 5
+
+volumes:
+  embedqa_test_data:

@@ -1,5 +1,5 @@
 server:
-  port: 8085
+  port: ${SERVER_PORT:8085}
   error:
     include-message: always
     include-binding-errors: always
@@ -9,27 +9,64 @@ spring:
     name: embedqa
 
   profiles:
-    active: dev
+    active: '@spring.active.profile@'
 
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/embedqa}
     driver-class-name: org.postgresql.Driver
     username: ${DATABASE_USERNAME:embedqa_user}
     password: ${DATABASE_PASSWORD:embedqa_pass}
+    hikari:
+      pool-name: EmbedQA-HikariCP
+      minimum-idle: ${HIKARI_MIN_IDLE:2}
+      maximum-pool-size: ${HIKARI_MAX_POOL:10}
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 30000
+
 
   jpa:
     hibernate:
-      ddl-auto: update
-    show-sql: true
+      ddl-auto: validate
+    show-sql: ${JPA_SHOW_SQL:false}
     properties:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: ${FLYWAY_BASELINE:true}
+    baseline-version: 0
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    out-of-order: false
+
+# Actuator Configuration (Health Checks)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+  health:
+    livenessstate:
+      enabled: true
+    readinessstate:
+      enabled: true
 
 logging:
   level:
-    com.embedqa: DEBUG
+    root: INFO
+    com.akash.embedqa: ${LOG_LEVEL:INFO}
     org.springframework.web: INFO
     org.hibernate: INFO
+    org.flywaydb: INFO
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} - %msg%n"
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

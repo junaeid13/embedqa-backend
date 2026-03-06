@@ -1,0 +1,35 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: embedqa-postgres
+    healthcheck:
+      test: "pg_isready -U embedqa_user -d embedqa"
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+      POSTGRES_DB: embedqa
+      POSTGRES_USER: embedqa_user
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - embedqa-network
+
+  embedqa:
+    image: akash9229/embedqa:${TAG:-latest}
+    container_name: embedqa
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/embedqa
+      DATABASE_USERNAME: embedqa_user
+    networks:
+      - embedqa-network
+
+networks:
+  embedqa-network:
+    driver: bridge
+
+volumes:
+  postgres_data:

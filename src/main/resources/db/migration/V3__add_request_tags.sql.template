@@ -1,0 +1,51 @@
+-- =====================================================
+-- V3__add_request_tags.sql
+-- Add tagging support for API requests
+-- Author: akash
+-- Date: 2025-01-XX (TODO: Update date when applying)
+-- =====================================================
+
+-- This is a TEMPLATE for future migrations
+-- Rename this file to remove .template extension when ready to apply
+
+-- =====================================================
+-- Tags Table
+-- =====================================================
+CREATE TABLE tags (
+    id BIGSERIAL PRIMARY KEY,
+    name VARCHAR(50) NOT NULL UNIQUE,
+    color VARCHAR(7) DEFAULT '#6366f1',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_by VARCHAR(255),
+    updated_at TIMESTAMP,
+    updated_by VARCHAR(255)
+);
+
+CREATE INDEX idx_tags_name ON tags(name);
+
+COMMENT ON TABLE tags IS 'Stores tags for categorizing API requests';
+
+-- =====================================================
+-- Request-Tag Junction Table (Many-to-Many)
+-- =====================================================
+CREATE TABLE request_tags (
+    request_id BIGINT NOT NULL REFERENCES api_requests(id) ON DELETE CASCADE,
+    tag_id BIGINT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (request_id, tag_id)
+);
+
+CREATE INDEX idx_request_tags_request_id ON request_tags(request_id);
+CREATE INDEX idx_request_tags_tag_id ON request_tags(tag_id);
+
+COMMENT ON TABLE request_tags IS 'Junction table for many-to-many relationship between requests and tags';
+
+-- =====================================================
+-- Insert default tags
+-- =====================================================
+INSERT INTO tags (name, color) VALUES 
+    ('auth', '#ef4444'),
+    ('public', '#22c55e'),
+    ('deprecated', '#f97316'),
+    ('wip', '#eab308'),
+    ('tested', '#3b82f6');

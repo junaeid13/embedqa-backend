@@ -1,0 +1,20 @@
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_PASSWORD: embedqa_pass
+
+  embedqa-api:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - "${SERVER_PORT:-8085}:${SERVER_PORT:-8085}"
+    environment:
+      SERVER_PORT: "${SERVER_PORT:-8085}"
+      SPRING_PROFILES_ACTIVE: dev
+      DATABASE_PASSWORD: embedqa_pass
+      LOG_LEVEL: DEBUG
+    volumes:
+      - ./logs:/app/logs

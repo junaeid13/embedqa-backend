@@ -1,0 +1,45 @@
+# =====================================================
+# EmbedQA - Production Override
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# =====================================================
+
+services:
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+
+  embedqa:
+    ports:
+      - "${SERVER_PORT:-8085}:${SERVER_PORT:-8085}"
+    environment:
+      SERVER_PORT: "${SERVER_PORT:-8085}"
+      SPRING_PROFILES_ACTIVE: prod
+      DATABASE_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required}
+      LOG_LEVEL: WARN
+      HIKARI_MIN_IDLE: 5
+      HIKARI_MAX_POOL: 20
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 1G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        max_attempts: 3
+    healthcheck:
+      test: "curl --fail --silent localhost:${SERVER_PORT:-8085}/actuator/health/readiness | grep UP || exit 1"
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
